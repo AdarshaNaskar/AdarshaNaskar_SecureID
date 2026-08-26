@@ -1,6 +1,6 @@
 const express = require("express");
 const crypto = require("crypto");
-const db = require("../database");
+const { pool } = require("../database");
 const { validatePassword, hashPassword } = require("../security");
 const { createOtp, verifyOtp } = require("../otp");
 const {
@@ -44,40 +44,45 @@ function validMobile(mobile) {
   return /^\d{7,15}$/.test(mobile);
 }
 
-function getRegistration(id) {
-  return db
-    .prepare(
-      `
+async function getRegistration(id) {
+  const result = await pool.query(
+    `
     SELECT r.*, u.email, u.mobile, u.country_code
     FROM registration_challenges r
     JOIN users u ON u.id = r.user_id
-    WHERE r.id = ?
-  `,
-    )
-    .get(id);
+    WHERE r.id = $1
+    `,
+    [id],
+  );
+
+  return result.rows[0];
 }
 
-function requireRegistration(req, res, next) {
-  const registrationId = req.body.registrationId;
+async function requireRegistration(req, res, next) {
+  try {
+    const registrationId = req.body.registrationId;
 
-  if (!registrationId) {
-    return res.status(400).json({
-      success: false,
-      message: "Registration session is required.",
-    });
+    if (!registrationId) {
+      return res.status(400).json({
+        success: false,
+        message: "Registration session is required.",
+      });
+    }
+
+    const registration = await getRegistration(registrationId);
+
+    if (!registration || Date.now() > Number(registration.expires_at)) {
+      return res.status(400).json({
+        success: false,
+        message: "Registration session has expired.",
+      });
+    }
+
+    req.registration = registration;
+    next();
+  } catch (error) {
+    next(error);
   }
-
-  const registration = getRegistration(registrationId);
-
-  if (!registration || Date.now() > registration.expires_at) {
-    return res.status(400).json({
-      success: false,
-      message: "Registration session has expired.",
-    });
-  }
-
-  req.registration = registration;
-  next();
 }
 
 router.post("/start", async (req, res, next) => {
@@ -128,18 +133,18 @@ router.post("/start", async (req, res, next) => {
       });
     }
 
-    const existing = db
-      .prepare(
-        `
+    const existingResult = await pool.query(
+      `
       SELECT email, mobile
       FROM users
-      WHERE email = ? OR mobile = ?
+      WHERE LOWER(email) = LOWER($1)
+         OR mobile = $2
       LIMIT 1
-    `,
-      )
-      .get(normalizedEmail, normalizedMobile);
+      `,
+      [normalizedEmail, normalizedMobile],
+    );
 
-    if (existing) {
+    if (existingResult.rows.length > 0) {
       // Keep the response generic to reduce account enumeration.
       return res.status(409).json({
         success: false,
@@ -148,30 +153,36 @@ router.post("/start", async (req, res, next) => {
     }
 
     const passwordHash = await hashPassword(password);
-    const userInsert = db.prepare(`
+
+    const userResult = await pool.query(
+      `
       INSERT INTO users
         (full_name, email, country_code, mobile, password_hash)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-
-    const user = userInsert.run(
-      fullName.trim(),
-      normalizedEmail,
-      countryCode,
-      normalizedMobile,
-      passwordHash,
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id
+      `,
+      [
+        fullName.trim(),
+        normalizedEmail,
+        countryCode,
+        normalizedMobile,
+        passwordHash,
+      ],
     );
+
+    const userId = userResult.rows[0].id;
 
     const registrationId = crypto.randomUUID();
     const now = Date.now();
 
-    db.prepare(
+    await pool.query(
       `
       INSERT INTO registration_challenges
         (id, user_id, step, created_at, expires_at)
-      VALUES (?, ?, 'email_verification', ?, ?)
-    `,
-    ).run(registrationId, user.lastInsertRowid, now, now + REGISTRATION_TTL);
+      VALUES ($1, $2, 'email_verification', $3, $4)
+      `,
+      [registrationId, userId, now, now + REGISTRATION_TTL],
+    );
 
     const otp = await createOtp({
       registrationId,
@@ -246,17 +257,24 @@ router.post("/email/verify", requireRegistration, async (req, res, next) => {
       });
     }
 
-    db.prepare(
-      "UPDATE users SET email_verified = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-    ).run(req.registration.user_id);
+    await pool.query(
+      `
+      UPDATE users
+      SET email_verified = 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      `,
+      [req.registration.user_id],
+    );
 
-    db.prepare(
+    await pool.query(
       `
       UPDATE registration_challenges
       SET step = 'mobile_verification'
-      WHERE id = ?
-    `,
-    ).run(req.registration.id);
+      WHERE id = $1
+      `,
+      [req.registration.id],
+    );
 
     const mobileOtp = await createOtp({
       registrationId: req.registration.id,
@@ -355,17 +373,24 @@ router.post("/mobile/verify", requireRegistration, async (req, res, next) => {
       });
     }
 
-    db.prepare(
-      "UPDATE users SET mobile_verified = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-    ).run(req.registration.user_id);
+    await pool.query(
+      `
+      UPDATE users
+      SET mobile_verified = 1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $1
+      `,
+      [req.registration.user_id],
+    );
 
-    db.prepare(
+    await pool.query(
       `
       UPDATE registration_challenges
       SET step = 'mfa_selection'
-      WHERE id = ?
-    `,
-    ).run(req.registration.id);
+      WHERE id = $1
+      `,
+      [req.registration.id],
+    );
 
     res.json({
       success: true,
@@ -394,32 +419,37 @@ router.post("/mfa/select", requireRegistration, async (req, res, next) => {
       });
     }
 
-    db.prepare(
+    await pool.query(
       `
       UPDATE registration_challenges
-      SET step = ?, mfa_method = ?
-      WHERE id = ?
-    `,
-    ).run(
-      method === "authenticator" ? "authenticator_setup" : "mfa_verification",
-      method,
-      req.registration.id,
+      SET step = $1,
+          mfa_method = $2
+      WHERE id = $3
+      `,
+      [
+        method === "authenticator" ? "authenticator_setup" : "mfa_verification",
+        method,
+        req.registration.id,
+      ],
     );
 
     if (method === "authenticator") {
       const setup = createAuthenticatorSetup(req.registration.email);
       const qr = await createQrCode(setup.otpauth);
 
-      db.prepare(
+      await pool.query(
         `
         UPDATE users
-        SET mfa_method = ?, mfa_secret_enc = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `,
-      ).run(
-        "authenticator",
-        protectSecret(setup.secret),
-        req.registration.user_id,
+        SET mfa_method = $1,
+            mfa_secret_enc = $2,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $3
+        `,
+        [
+          "authenticator",
+          protectSecret(setup.secret),
+          req.registration.user_id,
+        ],
       );
 
       return res.json({
@@ -438,13 +468,15 @@ router.post("/mfa/select", requireRegistration, async (req, res, next) => {
       purpose: "mfa",
     });
 
-    db.prepare(
+    await pool.query(
       `
       UPDATE users
-      SET mfa_method = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `,
-    ).run(method, req.registration.user_id);
+      SET mfa_method = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      `,
+      [method, req.registration.user_id],
+    );
 
     return res.json({
       success: true,
@@ -472,15 +504,16 @@ router.post(
         });
       }
 
-      const user = db
-        .prepare(
-          `
-          SELECT mfa_secret_enc
-          FROM users
-          WHERE id = ?
-          `,
-        )
-        .get(req.registration.user_id);
+      const userResult = await pool.query(
+        `
+        SELECT mfa_secret_enc
+        FROM users
+        WHERE id = $1
+        `,
+        [req.registration.user_id],
+      );
+
+      const user = userResult.rows[0];
 
       if (!user?.mfa_secret_enc) {
         return res.status(400).json({
@@ -496,22 +529,25 @@ router.post(
        * Registration is completed here without requesting
        * a TOTP code, as specified for this flow.
        */
-      db.prepare(
+
+      await pool.query(
         `
         UPDATE users
         SET mfa_enabled = 1,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
+        WHERE id = $1
         `,
-      ).run(req.registration.user_id);
+        [req.registration.user_id],
+      );
 
-      db.prepare(
+      await pool.query(
         `
         UPDATE registration_challenges
         SET step = 'complete'
-        WHERE id = ?
+        WHERE id = $1
         `,
-      ).run(req.registration.id);
+        [req.registration.id],
+      );
 
       return res.json({
         success: true,
@@ -547,15 +583,23 @@ router.post(
         });
       }
 
-      const user = db
-        .prepare(
-          `
-      SELECT mfa_secret_enc
-      FROM users
-      WHERE id = ?
-    `,
-        )
-        .get(req.registration.user_id);
+      const userResult = await pool.query(
+        `
+        SELECT mfa_secret_enc
+        FROM users
+        WHERE id = $1
+        `,
+        [req.registration.user_id],
+      );
+
+      const user = userResult.rows[0];
+
+      if (!user?.mfa_secret_enc) {
+        return res.status(400).json({
+          success: false,
+          message: "Authenticator setup is incomplete.",
+        });
+      }
 
       const { revealSecret } = require("../mfa");
       const secret = revealSecret(user.mfa_secret_enc);
@@ -567,21 +611,24 @@ router.post(
         });
       }
 
-      db.prepare(
+      await pool.query(
         `
-      UPDATE users
-      SET mfa_enabled = 1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `,
-      ).run(req.registration.user_id);
+        UPDATE users
+        SET mfa_enabled = 1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        `,
+        [req.registration.user_id],
+      );
 
-      db.prepare(
+      await pool.query(
         `
-      UPDATE registration_challenges
-      SET step = 'complete'
-      WHERE id = ?
-    `,
-      ).run(req.registration.id);
+        UPDATE registration_challenges
+        SET step = 'complete'
+        WHERE id = $1
+        `,
+        [req.registration.id],
+      );
 
       res.json({
         success: true,
@@ -658,21 +705,24 @@ router.post("/mfa/otp/verify", requireRegistration, async (req, res, next) => {
       });
     }
 
-    db.prepare(
+    await pool.query(
       `
-      UPDATE users
-      SET mfa_enabled = 1, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `,
-    ).run(req.registration.user_id);
+        UPDATE users
+        SET mfa_enabled = 1,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        `,
+      [req.registration.user_id],
+    );
 
-    db.prepare(
+    await pool.query(
       `
-      UPDATE registration_challenges
-      SET step = 'complete'
-      WHERE id = ?
-    `,
-    ).run(req.registration.id);
+        UPDATE registration_challenges
+        SET step = 'complete'
+        WHERE id = $1
+        `,
+      [req.registration.id],
+    );
 
     res.json({
       success: true,

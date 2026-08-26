@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 const argon2 = require("argon2");
-const db = require("./database");
+const { pool } = require("./database");
 
 const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
@@ -11,83 +11,134 @@ function generateOtp() {
 
 async function createOtp({ registrationId, channel, purpose }) {
   const otp = generateOtp();
-  const otpHash = await argon2.hash(otp, { type: argon2.argon2id });
+  const otpHash = await argon2.hash(otp, {
+    type: argon2.argon2id,
+  });
 
   const id = crypto.randomUUID();
   const now = Date.now();
+  const expiresAt = now + OTP_TTL_MS;
 
-  db.prepare(
-    `
-    UPDATE otp_challenges
-    SET used = 1
-    WHERE registration_id = ? AND channel = ? AND purpose = ? AND used = 0
-  `,
-  ).run(registrationId, channel, purpose);
+  const client = await pool.connect();
 
-  db.prepare(
-    `
-    INSERT INTO otp_challenges
-      (id, registration_id, channel, purpose, otp_hash,
-       created_at, expires_at, attempts, max_attempts, used)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, 0)
-  `,
-  ).run(
-    id,
-    registrationId,
-    channel,
-    purpose,
-    otpHash,
-    now,
-    now + OTP_TTL_MS,
-    OTP_MAX_ATTEMPTS,
-  );
+  try {
+    await client.query("BEGIN");
+
+    // Invalidate any previous unused OTP for the same purpose.
+    await client.query(
+      `
+      UPDATE otp_challenges
+      SET used = 1
+      WHERE registration_id = $1
+        AND channel = $2
+        AND purpose = $3
+        AND used = 0
+      `,
+      [registrationId, channel, purpose],
+    );
+
+    // Create the new OTP challenge.
+    await client.query(
+      `
+      INSERT INTO otp_challenges
+        (id, registration_id, channel, purpose, otp_hash,
+         created_at, expires_at, attempts, max_attempts, used)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, 0)
+      `,
+      [
+        id,
+        registrationId,
+        channel,
+        purpose,
+        otpHash,
+        now,
+        expiresAt,
+        OTP_MAX_ATTEMPTS,
+      ],
+    );
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 
   // Development delivery simulation only.
   console.log(`[SecureID DEV DELIVERY] ${channel}/${purpose}: ${otp}`);
 
-  return { challengeId: id, expiresAt: now + OTP_TTL_MS };
+  return {
+    challengeId: id,
+    expiresAt,
+  };
 }
 
 async function verifyOtp({ registrationId, channel, purpose, otp }) {
-  const row = db
-    .prepare(
-      `
+  const result = await pool.query(
+    `
     SELECT *
     FROM otp_challenges
-    WHERE registration_id = ?
-      AND channel = ?
-      AND purpose = ?
+    WHERE registration_id = $1
+      AND channel = $2
+      AND purpose = $3
       AND used = 0
     ORDER BY created_at DESC
     LIMIT 1
-  `,
-    )
-    .get(registrationId, channel, purpose);
+    `,
+    [registrationId, channel, purpose],
+  );
 
-  if (!row) return { ok: false, reason: "invalid" };
+  const row = result.rows[0];
 
-  if (Date.now() > row.expires_at) {
-    db.prepare("UPDATE otp_challenges SET used = 1 WHERE id = ?").run(row.id);
-    return { ok: false, reason: "expired" };
+  if (!row) {
+    return {
+      ok: false,
+      reason: "invalid",
+    };
+  }
+
+  if (Date.now() > Number(row.expires_at)) {
+    await pool.query("UPDATE otp_challenges SET used = 1 WHERE id = $1", [
+      row.id,
+    ]);
+
+    return {
+      ok: false,
+      reason: "expired",
+    };
   }
 
   if (row.attempts >= row.max_attempts) {
-    db.prepare("UPDATE otp_challenges SET used = 1 WHERE id = ?").run(row.id);
-    return { ok: false, reason: "locked" };
+    await pool.query("UPDATE otp_challenges SET used = 1 WHERE id = $1", [
+      row.id,
+    ]);
+
+    return {
+      ok: false,
+      reason: "locked",
+    };
   }
 
   const correct = await argon2.verify(row.otp_hash, otp);
 
   if (!correct) {
     const attempts = row.attempts + 1;
-    db.prepare("UPDATE otp_challenges SET attempts = ? WHERE id = ?").run(
+
+    await pool.query("UPDATE otp_challenges SET attempts = $1 WHERE id = $2", [
       attempts,
       row.id,
-    );
+    ]);
 
     if (attempts >= row.max_attempts) {
-      db.prepare("UPDATE otp_challenges SET used = 1 WHERE id = ?").run(row.id);
-      return { ok: false, reason: "locked" };
+      await pool.query("UPDATE otp_challenges SET used = 1 WHERE id = $1", [
+        row.id,
+      ]);
+
+      return {
+        ok: false,
+        reason: "locked",
+      };
     }
 
     return {
@@ -97,8 +148,13 @@ async function verifyOtp({ registrationId, channel, purpose, otp }) {
     };
   }
 
-  db.prepare("UPDATE otp_challenges SET used = 1 WHERE id = ?").run(row.id);
-  return { ok: true };
+  await pool.query("UPDATE otp_challenges SET used = 1 WHERE id = $1", [
+    row.id,
+  ]);
+
+  return {
+    ok: true,
+  };
 }
 
 module.exports = {
