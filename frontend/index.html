@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>SecureID - Registration</title>
+
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+
+  <body>
+    <main class="app">
+      <!--LEFT BRAND PANEL-->
+
+      <aside class="brand-panel">
+        <div class="brand-logo">
+          <div class="shield-logo">
+            <span>●</span>
+          </div>
+
+          <span>SecureID</span>
+        </div>
+
+        <div class="brand-message">
+          <h2>
+            Secure access.<br />
+            Made simple.
+          </h2>
+
+          <p>Protect your account with secure multi-factor authentication.</p>
+        </div>
+      </aside>
+
+      <!--RIGHT CONTENT AREA-->
+
+      <section class="content-panel">
+        <!--SHARED PROGRESS-->
+
+        <div class="registration-progress" id="registrationProgress">
+          <div class="progress-step active" data-step="1">1</div>
+
+          <div class="progress-line"></div>
+
+          <div class="progress-step" data-step="2">2</div>
+
+          <div class="progress-line"></div>
+
+          <div class="progress-step" data-step="3">3</div>
+
+          <div class="progress-line"></div>
+
+          <div class="progress-step" data-step="4">4</div>
+
+          <div class="progress-line"></div>
+
+          <div class="progress-step" data-step="5">5</div>
+        </div>
+
+        <!--STEP 1: REGISTRATION-->
+
+        <section class="registration-screen" id="registrationScreen">
+          <div class="page-heading">
+            <h1>Create your account</h1>
+
+            <p>Let's get you started</p>
+          </div>
+
+          <form id="registrationForm" novalidate>
+            <div class="form-layout">
+              <!--LEFT FORM COLUMN-->
+
+              <div class="form-column">
+                <!-- Full Name -->
+
+                <div class="form-field">
+                  <label for="fullName"> Full Name </label>
+
+                  <input
+                    type="text"
+                    id="fullName"
+                    name="fullName"
+                    placeholder="Enter your full name"
+                    autocomplete="name"
+                  />
+
+                  <span class="field-error" id="fullNameError"></span>
+                </div>
+
+                <!-- Email -->
+
+                <div class="form-field">
+                  <label for="email"> Email </label>
+
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    autocomplete="email"
+                  />
+
+                  <span class="field-error" id="emailError"></span>
+                </div>
+
+                <!-- Mobile -->
+
+                <div class="form-field">
+                  <label for="mobile"> Mobile Number </label>
+
+                  <div class="mobile-input">
+                    <select id="countryCode" name="countryCode">
+                      <option value="+91">+91</option>
+
+                      <option value="+1">+1</option>
+
+                      <option value="+44">+44</option>
+
+                      <option value="+61">+61</option>
+                    </select>
+
+                    <input
+                      type="tel"
+                      id="mobile"
+                      name="mobile"
+                      placeholder="Mobile number"
+                      inputmode="numeric"
+                      maxlength="10"
+                      autocomplete="tel"
+                    />
+                  </div>
+
+                  <span class="field-error" id="mobileError"></span>
+                </div>
+
+                <!-- Password -->
+
+                <div class="form-field">
+                  <label for="password"> Password </label>
+
+                  <div class="password-input">
+                    <input
+                      type="password"
+                      id="password"
+                      name="password"
+                      placeholder="Create a password"
+                      autocomplete="new-password"
+                    />
+
+                    <button type="button" id="togglePassword">Show</button>
+                  </div>
+
+                  <span class="field-error" id="passwordError"></span>
+                </div>
+              </div>
+
+              <!--RIGHT PASSWORD COLUMN-->
+
+              <div class="password-column">
+                <div class="password-box">
+                  <h2>Password must contain:</h2>
+
+                  <div class="password-rule" id="lengthRule">
+                    <span class="rule-icon"> ○ </span>
+
+                    <span> At least 8 characters </span>
+                  </div>
+
+                  <div class="password-rule" id="uppercaseRule">
+                    <span class="rule-icon"> ○ </span>
+
+                    <span> 1 uppercase letter </span>
+                  </div>
+
+                  <div class="password-rule" id="numberRule">
+                    <span class="rule-icon"> ○ </span>
+
+                    <span> 1 number </span>
+                  </div>
+
+                  <div class="password-rule" id="specialRule">
+                    <span class="rule-icon"> ○ </span>
+
+                    <span> 1 special character </span>
+                  </div>
+                </div>
+
+                <!-- Terms -->
+
+                <label class="terms">
+                  <input type="checkbox" id="terms" name="terms" />
+
+                  <span>
+                    I agree to the
+
+                    <a href="#"> Terms & Conditions </a>
+
+                    and
+
+                    <a href="#"> Privacy Policy </a>
+                  </span>
+                </label>
+
+                <span class="field-error" id="termsError"></span>
+              </div>
+            </div>
+
+            <!-- Create Account -->
+
+            <button type="submit" class="create-account-button">
+              Create Account
+            </button>
+
+            <!-- Login -->
+
+            <p class="login-link">
+              Already have an account?
+
+              <a href="#"> Login </a>
+            </p>
+          </form>
+        </section>
+
+        <!--STEP 2: EMAIL VERIFICATION-->
+
+        <section class="otp-screen" id="emailVerificationScreen" hidden>
+          <button
+            type="button"
+            class="otp-back"
+            id="otpBackButton"
+            aria-label="Go back"
+          >
+            ←
+          </button>
+
+          <div class="otp-icon">
+            <div class="email-icon">
+              <span></span>
+            </div>
+          </div>
+
+          <div class="otp-heading">
+            <h1>Verify your email</h1>
+
+            <p>We have sent a 6-digit code to</p>
+
+            <strong id="verificationEmail"></strong>
+          </div>
+
+          <div class="otp-inputs" id="otpInputs">
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 1"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 2"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 3"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 4"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 5"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 6"
+            />
+          </div>
+
+          <p class="otp-error" id="otpError" hidden></p>
+
+          <p class="otp-timer">
+            Code expires in
+
+            <strong id="otpTimer"> --:-- </strong>
+          </p>
+
+          <button
+            type="button"
+            class="resend-button"
+            id="resendButton"
+            disabled
+          >
+            Resend code
+          </button>
+
+          <p class="otp-help">Didn't receive the code?</p>
+        </section>
+
+        <!-- =================================
+     STEP 3
+     MOBILE VERIFICATION
+================================== -->
+
+        <section class="mobile-otp-screen" id="mobileVerificationScreen" hidden>
+          <!-- Back -->
+
+          <button
+            type="button"
+            class="otp-back"
+            id="mobileOtpBackButton"
+            aria-label="Go back"
+          >
+            ←
+          </button>
+
+          <!-- Phone Icon -->
+
+          <div class="mobile-otp-icon">
+            <div class="phone-icon">☎</div>
+          </div>
+
+          <!-- Heading -->
+
+          <div class="otp-heading">
+            <h1>Verify your mobile</h1>
+
+            <p>We have sent a 6-digit code to</p>
+
+            <strong id="verificationMobile"></strong>
+          </div>
+
+          <!-- OTP -->
+
+          <div class="mobile-otp-inputs" id="mobileOtpInputs">
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Mobile OTP digit 1"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Mobile OTP digit 2"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Mobile OTP digit 3"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Mobile OTP digit 4"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Mobile OTP digit 5"
+            />
+
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="Mobile OTP digit 6"
+            />
+          </div>
+
+          <!-- Error -->
+
+          <p class="mobile-otp-error" id="mobileOtpError" hidden></p>
+
+          <!-- Timer -->
+
+          <p class="mobile-otp-timer">
+            Code expires in
+
+            <strong id="mobileOtpTimer"> 02:45 </strong>
+          </p>
+
+          <!-- Resend -->
+
+          <button
+            type="button"
+            class="mobile-resend-button"
+            id="mobileResendButton"
+            disabled
+          >
+            Resend code (00:25)
+          </button>
+
+          <!-- Change Number -->
+
+          <p class="change-number">
+            Wrong number?
+
+            <button type="button" id="changeMobileButton">Change</button>
+          </p>
+        </section>
+
+        <!-- =========================================
+     STEP 4 — SET UP MFA
+========================================= -->
+
+        <section
+          id="mfaSetupScreen"
+          class="registration-step-screen mfa-setup-screen"
+          hidden
+        >
+          <button type="button" class="step-back-button" id="mfaSetupBack">
+            ←
+          </button>
+
+          <div class="mfa-content">
+            <div class="mfa-icon shield-icon">🔒</div>
+
+            <h1>Set up Multi-Factor Auth</h1>
+
+            <p class="mfa-description">
+              Add an extra layer of security to protect your account.
+            </p>
+
+            <div class="mfa-methods">
+              <!-- Authenticator -->
+
+              <label class="mfa-method selected" data-method="authenticator">
+                <input
+                  type="radio"
+                  name="mfaMethod"
+                  value="authenticator"
+                  checked
+                />
+
+                <div class="mfa-method-icon">◉</div>
+
+                <div class="mfa-method-text">
+                  <strong> Authenticator App </strong>
+
+                  <span> (Google Authenticator / Authy) </span>
+                </div>
+
+                <span class="mfa-radio"></span>
+              </label>
+
+              <!-- SMS -->
+
+              <label class="mfa-method" data-method="sms">
+                <input type="radio" name="mfaMethod" value="sms" />
+
+                <div class="mfa-method-icon">▣</div>
+
+                <div class="mfa-method-text">
+                  <strong> SMS Authentication </strong>
+
+                  <span> Receive codes on your mobile </span>
+                </div>
+
+                <span class="mfa-radio"></span>
+              </label>
+
+              <!-- Email -->
+
+              <label class="mfa-method" data-method="email">
+                <input type="radio" name="mfaMethod" value="email" />
+
+                <div class="mfa-method-icon">✉</div>
+
+                <div class="mfa-method-text">
+                  <strong> Email Authentication </strong>
+
+                  <span> Receive codes on your email </span>
+                </div>
+
+                <span class="mfa-radio"></span>
+              </label>
+            </div>
+
+            <button type="button" class="primary-button" id="mfaSetupContinue">
+              Continue
+            </button>
+          </div>
+        </section>
+
+        <!-- =========================================
+     STEP 5 — AUTHENTICATOR SETUP
+========================================= -->
+
+        <section
+          id="authenticatorSetupScreen"
+          class="registration-step-screen authenticator-setup-screen"
+          hidden
+        >
+          <button type="button" class="step-back-button" id="authenticatorBack">
+            ←
+          </button>
+
+          <div class="authenticator-content">
+            <div class="mfa-icon shield-icon">🔒</div>
+
+            <h1>Scan QR Code</h1>
+
+            <p>
+              Open your authenticator app and
+              <br />
+              scan this QR code
+            </p>
+
+            <!-- Temporary QR placeholder -->
+
+            <div class="qr-code" id="qrCode" aria-label="Authenticator QR code">
+              <div class="qr-pattern">
+                <span></span>
+              </div>
+            </div>
+
+            <button type="button" class="setup-key-button" id="setupKeyButton">
+              Can't scan? Enter setup key
+            </button>
+
+            <div class="setup-key" id="setupKey" hidden></div>
+
+            <!-- Web navigation -->
+
+            <div class="authenticator-actions">
+              <button
+                type="button"
+                class="secondary-button"
+                id="authenticatorBackBottom"
+              >
+                Back
+              </button>
+
+              <button
+                type="button"
+                class="primary-button"
+                id="authenticatorContinue"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- =========================================
+     STEP 6 — MFA VERIFICATION
+========================================= -->
+
+        <section
+          id="mfaVerificationScreen"
+          class="registration-step-screen mfa-verification-screen"
+          hidden
+        >
+          <button
+            type="button"
+            class="step-back-button"
+            id="mfaVerificationBack"
+          >
+            ←
+          </button>
+
+          <div class="mfa-verification-content">
+            <div class="mfa-icon shield-icon" id="mfaVerificationIcon">🔒</div>
+
+            <h1>Enter the 6-digit code</h1>
+
+            <p>
+              Enter the code from your
+              <br />
+              authenticator app
+            </p>
+
+            <div class="mfa-otp-inputs" id="mfaOtpInputs">
+              <input
+                type="text"
+                inputmode="numeric"
+                maxlength="1"
+                aria-label="MFA digit 1"
+              />
+
+              <input
+                type="text"
+                inputmode="numeric"
+                maxlength="1"
+                aria-label="MFA digit 2"
+              />
+
+              <input
+                type="text"
+                inputmode="numeric"
+                maxlength="1"
+                aria-label="MFA digit 3"
+              />
+
+              <input
+                type="text"
+                inputmode="numeric"
+                maxlength="1"
+                aria-label="MFA digit 4"
+              />
+
+              <input
+                type="text"
+                inputmode="numeric"
+                maxlength="1"
+                aria-label="MFA digit 5"
+              />
+
+              <input
+                type="text"
+                inputmode="numeric"
+                maxlength="1"
+                aria-label="MFA digit 6"
+              />
+            </div>
+
+            <p class="mfa-otp-error" id="mfaOtpError" hidden></p>
+
+            <p class="mfa-timer">
+              Code expires in
+
+              <strong id="mfaTimer"> 00:28 </strong>
+            </p>
+
+            <button type="button" class="cant-access-button" id="cantAccessMfa">
+              Can't access your app?
+            </button>
+          </div>
+        </section>
+
+        <!-- =========================================
+     STEP 7 — REGISTRATION SUCCESS
+========================================= -->
+
+        <section
+          id="registrationSuccessScreen"
+          class="registration-step-screen registration-success-screen"
+          hidden
+        >
+          <div class="success-content">
+            <div class="success-icon">✓</div>
+
+            <h1>Account created!</h1>
+
+            <p>
+              Your account has been created
+              <br />
+              successfully and MFA is enabled.
+            </p>
+
+            <div class="verification-list">
+              <div class="verification-item">
+                <span>✓</span>
+
+                <p>Email verified</p>
+              </div>
+
+              <div class="verification-item">
+                <span>✓</span>
+
+                <p>Mobile verified</p>
+              </div>
+
+              <div class="verification-item">
+                <span>✓</span>
+
+                <p>MFA enabled</p>
+              </div>
+            </div>
+
+            <button type="button" class="primary-button" id="continueToLogin">
+              Continue to Login
+            </button>
+          </div>
+        </section>
+
+        <!--FOOTER-->
+
+        <footer>© 2024 SecureID. All rights reserved.</footer>
+      </section>
+    </main>
+
+    <script src="js/app.js"></script>
+  </body>
+</html>
