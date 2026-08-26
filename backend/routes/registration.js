@@ -434,7 +434,7 @@ router.post("/mfa/select", requireRegistration, async (req, res, next) => {
     );
 
     if (method === "authenticator") {
-      const setup = createAuthenticatorSetup(req.registration.email);
+      const setup = await createAuthenticatorSetup(req.registration.email);
       const qr = await createQrCode(setup.otpauth);
 
       await pool.query(

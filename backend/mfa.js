@@ -1,16 +1,20 @@
-const { generateSecret, generateURI, verify } = require("otplib");
-
 const QRCode = require("qrcode");
 
 const { encryptSecret, decryptSecret } = require("./security");
 
+// Load otplib through dynamic import so its ESM dependencies
+// are loaded correctly from our CommonJS backend.
+const otplibPromise = import("otplib");
+
 /*
- * Create authenticator setup
+ * Create authenticator setup.
  *
- * Generates a Base32 secret and the otpauth URI
+ * Generates a random Base32 secret and the otpauth URI
  * used by Google Authenticator / Authy.
  */
-function createAuthenticatorSetup(email) {
+async function createAuthenticatorSetup(email) {
+  const { generateSecret, generateURI } = await otplibPromise;
+
   const secret = generateSecret(20);
 
   const otpauth = generateURI({
@@ -39,13 +43,14 @@ async function createQrCode(otpauth) {
 /*
  * Verify authenticator code.
  *
- * otplib v13 returns an object:
- *
+ * otplib v13 returns:
  * {
  *   valid: true/false
  * }
  */
 async function verifyTotp(secret, code) {
+  const { verify } = await otplibPromise;
+
   const result = await verify({
     secret,
     token: code,

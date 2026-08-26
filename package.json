@@ -26,6 +26,9 @@
   "devDependencies": {
     "nodemon": "^3.1.14"
   },
+  "engines": {
+    "node": "24.x"
+  },
   "allowScripts": {
     "argon2@0.45.1": true,
     "better-sqlite3@13.0.3": true
