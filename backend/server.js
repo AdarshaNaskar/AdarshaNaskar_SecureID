@@ -96,11 +96,6 @@ app.use("/api", (req, res) => {
   });
 });
 
-/*
- * Global error handler
- *
- * Never expose internal server errors to the client.
- */
 app.use((err, req, res, next) => {
   console.error("[SecureID SERVER]", err.message);
 
@@ -113,3 +108,5 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`SecureID server running at http://localhost:${PORT}`);
 });
+
+module.exports = app;
