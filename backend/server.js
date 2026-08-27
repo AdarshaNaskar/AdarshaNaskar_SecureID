@@ -32,6 +32,9 @@ if (!process.env.SESSION_SECRET) {
 
 const app = express();
 
+// Vercel runs Express behind a proxy.
+app.set("trust proxy", 1);
+
 const PORT = Number(process.env.PORT || 3000);
 
 app.disable("x-powered-by");
