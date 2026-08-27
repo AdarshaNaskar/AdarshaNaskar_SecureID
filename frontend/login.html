@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>SecureID — Login</title>
+
+    <link rel="stylesheet" href="css/login.css" />
+  </head>
+
+  <body>
+    <main class="login-page">
+      <!-- Desktop branding panel -->
+      <section class="login-brand-panel">
+        <div class="brand-logo">
+          <div class="brand-icon">S</div>
+          <span>SecureID</span>
+        </div>
+
+        <div class="brand-content">
+          <h1>Secure access<br />to your account</h1>
+
+          <p>
+            Protect your identity with<br />
+            SecureID authentication.
+          </p>
+        </div>
+      </section>
+
+      <!-- Login panel -->
+      <section class="login-panel">
+        <div class="login-container">
+          <!-- Login icon -->
+          <div class="login-icon" aria-hidden="true">🔐</div>
+
+          <!-- Heading -->
+          <div class="login-heading">
+            <h2>Welcome back!</h2>
+            <p>Login to your account</p>
+          </div>
+
+          <!-- Login form -->
+          <form id="loginForm" novalidate>
+            <!-- Email / Username -->
+            <div class="form-group">
+              <label for="loginIdentifier"> Email or Username </label>
+
+              <input
+                type="text"
+                id="loginIdentifier"
+                name="identifier"
+                autocomplete="username"
+                placeholder="Enter your email or username"
+                required
+              />
+
+              <p class="field-error" id="identifierError" hidden></p>
+            </div>
+
+            <!-- Password -->
+            <div class="form-group">
+              <label for="loginPassword"> Password </label>
+
+              <div class="password-wrapper">
+                <input
+                  type="password"
+                  id="loginPassword"
+                  name="password"
+                  autocomplete="current-password"
+                  placeholder="Enter your password"
+                  required
+                />
+
+                <button
+                  type="button"
+                  id="toggleLoginPassword"
+                  class="password-toggle"
+                  aria-label="Show password"
+                >
+                  Show
+                </button>
+              </div>
+
+              <p class="field-error" id="passwordError" hidden></p>
+            </div>
+
+            <!-- Remember + Forgot -->
+            <div class="login-options">
+              <label class="remember-option">
+                <input type="checkbox" id="rememberMe" name="rememberMe" />
+
+                <span>Remember me</span>
+              </label>
+
+              <button type="button" id="forgotPassword" class="forgot-password">
+                Forgot password?
+              </button>
+            </div>
+
+            <!-- General login error -->
+            <div id="loginError" class="login-error" hidden></div>
+
+            <!-- Login button -->
+            <button type="submit" id="loginButton" class="primary-button">
+              Login
+            </button>
+
+            <!-- Divider -->
+            <div class="login-divider">
+              <span>or</span>
+            </div>
+
+            <!-- Google -->
+            <button type="button" id="googleLogin" class="google-button">
+              <span class="google-icon">G</span>
+              <span>Continue with Google</span>
+            </button>
+
+            <!-- Registration -->
+            <p class="create-account">
+              New here?
+              <button type="button" id="createAccount">
+                Create an account
+              </button>
+            </p>
+          </form>
+        </div>
+
+        <!-- =====================================================
+     MFA METHOD SELECTION
+     ===================================================== -->
+
+        <section id="mfaMethodScreen" class="mfa-method-screen" hidden>
+          <!-- Back -->
+          <button type="button" id="mfaBackButton" class="mfa-back-button">
+            ← Back
+          </button>
+
+          <!-- Heading -->
+          <div class="mfa-heading">
+            <div class="login-icon" aria-hidden="true">🔐</div>
+
+            <h2>Verify your identity</h2>
+
+            <p>Choose a method to continue</p>
+          </div>
+
+          <!-- MFA options -->
+          <div class="mfa-methods">
+            <!-- Email -->
+            <label class="mfa-method">
+              <div class="mfa-method-icon" aria-hidden="true">✉</div>
+
+              <div class="mfa-method-content">
+                <h3>Email Authentication</h3>
+
+                <p>Receive a verification code by email</p>
+              </div>
+
+              <input type="radio" name="loginMfaMethod" value="email" />
+            </label>
+
+            <!-- SMS -->
+            <label class="mfa-method">
+              <div class="mfa-method-icon" aria-hidden="true">💬</div>
+
+              <div class="mfa-method-content">
+                <h3>SMS Authentication</h3>
+
+                <p>Receive a verification code by SMS</p>
+              </div>
+
+              <input type="radio" name="loginMfaMethod" value="sms" />
+            </label>
+
+            <!-- Authenticator -->
+            <label class="mfa-method">
+              <div class="mfa-method-icon" aria-hidden="true">🔐</div>
+
+              <div class="mfa-method-content">
+                <h3>Authenticator App</h3>
+
+                <p>Use your authenticator app to verify</p>
+              </div>
+
+              <input type="radio" name="loginMfaMethod" value="authenticator" />
+            </label>
+          </div>
+
+          <!-- Continue -->
+          <button
+            type="button"
+            id="mfaContinueButton"
+            class="mfa-continue-button"
+          >
+            Continue
+          </button>
+        </section>
+
+        <!-- =====================================================
+     MFA OTP VERIFICATION
+     ===================================================== -->
+
+        <section id="mfaOtpScreen" class="mfa-otp-screen" hidden>
+          <!-- Back -->
+          <button type="button" id="otpBackButton" class="otp-back-button">
+            ← Back
+          </button>
+
+          <!-- Heading -->
+          <div class="otp-heading">
+            <div class="otp-icon" id="otpIcon" aria-hidden="true">✉</div>
+
+            <h2 id="otpTitle">Email Verification</h2>
+
+            <p id="otpDescription">Enter the verification code sent to</p>
+
+            <p id="otpDestination" class="otp-destination">
+              your email address
+            </p>
+          </div>
+
+          <!-- OTP inputs -->
+          <div id="otpInputs" class="otp-inputs">
+            <input
+              class="otp-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              autocomplete="one-time-code"
+              aria-label="OTP digit 1"
+            />
+
+            <input
+              class="otp-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 2"
+            />
+
+            <input
+              class="otp-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 3"
+            />
+
+            <input
+              class="otp-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 4"
+            />
+
+            <input
+              class="otp-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 5"
+            />
+
+            <input
+              class="otp-input"
+              type="text"
+              inputmode="numeric"
+              maxlength="1"
+              aria-label="OTP digit 6"
+            />
+          </div>
+
+          <!-- Error -->
+          <p id="otpError" class="otp-error" hidden>
+            Incorrect code. Please try again.
+          </p>
+
+          <!-- Timer -->
+          <p id="otpTimer" class="otp-timer">
+            Code expires in <strong>00:30</strong>
+          </p>
+
+          <!-- Verify -->
+          <button type="button" id="otpVerifyButton" class="otp-verify-button">
+            Verify
+          </button>
+
+          <!-- Resend -->
+          <div class="otp-resend">
+            <span>Didn't receive the code?</span>
+
+            <button type="button" id="otpResendButton" disabled>
+              Resend code
+            </button>
+          </div>
+        </section>
+
+        <!-- =====================================================
+     AUTHENTICATOR APP VERIFICATION
+     ===================================================== -->
+
+        <section
+          id="authenticatorLoginScreen"
+          class="authenticator-login-screen"
+          hidden
+        >
+          <!-- Back -->
+          <button
+            type="button"
+            id="authenticatorBackButton"
+            class="authenticator-back-button"
+          >
+            ← Back
+          </button>
+
+          <!-- Icon -->
+          <div class="authenticator-icon" aria-hidden="true">🔐</div>
+
+          <!-- Heading -->
+          <div class="authenticator-heading">
+            <h2>Authenticator Verification</h2>
+
+            <p>Enter the 6-digit code from your authenticator app</p>
+          </div>
+
+          <!-- TOTP -->
+          <input
+            type="text"
+            id="authenticatorCode"
+            class="authenticator-code"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="6"
+            placeholder="Enter 6-digit code"
+            aria-label="Authenticator verification code"
+          />
+
+          <!-- Error -->
+          <p id="authenticatorError" class="authenticator-error" hidden>
+            Incorrect code. Please try again.
+          </p>
+
+          <!-- Verify -->
+          <button
+            type="button"
+            id="authenticatorVerifyButton"
+            class="authenticator-verify-button"
+          >
+            Verify
+          </button>
+
+          <!-- Help -->
+          <p class="authenticator-help">
+            Open your authenticator app to view your current verification code.
+          </p>
+        </section>
+
+        <!-- =====================================================
+     LOGIN SUCCESS
+     ===================================================== -->
+
+        <section id="loginSuccessScreen" class="login-success-screen" hidden>
+          <div class="success-icon" aria-hidden="true">✓</div>
+
+          <div class="success-heading">
+            <h2>Login Successful</h2>
+
+            <p>You have been securely authenticated.</p>
+          </div>
+
+          <button
+            type="button"
+            id="continueToAccountButton"
+            class="primary-button"
+          >
+            Continue
+          </button>
+
+          <button type="button" id="logoutButton" class="primary-button">
+            Logout
+          </button>
+        </section>
+
+        <!-- Footer -->
+        <footer class="login-footer">
+          © 2024 SecureID. All rights reserved.
+        </footer>
+      </section>
+    </main>
+
+    <script src="js/login.js"></script>
+  </body>
+</html>

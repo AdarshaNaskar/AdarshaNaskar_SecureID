@@ -62,6 +62,58 @@ async function initializeDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_registration_user
       ON registration_challenges(user_id);
+
+    CREATE TABLE IF NOT EXISTS login_challenges (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      step TEXT NOT NULL,
+      mfa_method TEXT,
+      created_at BIGINT NOT NULL,
+      expires_at BIGINT NOT NULL,
+      FOREIGN KEY (user_id)
+      REFERENCES users(id)
+      ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS login_otp_challenges (
+      id TEXT PRIMARY KEY,
+      login_challenge_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      otp_hash TEXT NOT NULL,
+      created_at BIGINT NOT NULL,
+      expires_at BIGINT NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      max_attempts INTEGER NOT NULL DEFAULT 5,
+      used INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (login_challenge_id)
+      REFERENCES login_challenges(id)
+      ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_login_otp_challenge
+      ON login_otp_challenges(login_challenge_id);
+
+    CREATE INDEX IF NOT EXISTS idx_login_challenges_user
+      ON login_challenges(user_id);
+
+    CREATE TABLE IF NOT EXISTS login_sessions (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at BIGINT NOT NULL,
+      expires_at BIGINT NOT NULL,
+      revoked INTEGER NOT NULL DEFAULT 0,
+
+      FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_login_sessions_user
+      ON login_sessions(user_id);
+
+    CREATE INDEX IF NOT EXISTS idx_login_sessions_token
+      ON login_sessions(token_hash);
   `);
 }
 

@@ -559,7 +559,7 @@ function bindNavigation() {
   });
 
   $("continueToLogin")?.addEventListener("click", () => {
-    console.log("Registration complete. Login journey will be connected next.");
+    window.location.href = "/login.html";
   });
 
   $("cantAccessMfa")?.addEventListener("click", () => {
