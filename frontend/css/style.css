@@ -4,6 +4,27 @@
   padding: 0;
 }
 
+.demo-notice {
+  max-width: 900px;
+  margin: 20px auto;
+  padding: 15px 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #f5f5f5;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.demo-notice strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 16px;
+}
+
+.demo-notice p {
+  margin: 5px 0;
+}
+
 html,
 body {
   width: 100%;
