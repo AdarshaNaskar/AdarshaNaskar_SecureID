@@ -93,10 +93,19 @@ const registrationLimiter = rateLimit({
 });
 
 /* =====================================================
-   GLOBAL API LIMIT
+   GLOBAL API LIMIT & DB INITIALIZATION
    ===================================================== */
 
 app.use(generalLimiter);
+
+app.use(async (req, res, next) => {
+  try {
+    await initializeDatabase();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 /* =====================================================
    REGISTRATION API
@@ -212,16 +221,18 @@ app.use((err, req, res, next) => {
    START SERVER
    ===================================================== */
 
-initializeDatabase()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`SecureID server running at http://localhost:${PORT}`);
-    });
-  })
-  .catch((error) => {
-    console.error("Database initialization failed:", error);
+if (require.main === module) {
+  initializeDatabase()
+    .then(() => {
+      console.log("Database initialized successfully.");
 
-    process.exit(1);
-  });
+      app.listen(PORT, () => {
+        console.log(`SecureID server running at http://localhost:${PORT}`);
+      });
+    })
+    .catch((error) => {
+      console.error("Database initialization failed:", error);
+    });
+}
 
 module.exports = app;

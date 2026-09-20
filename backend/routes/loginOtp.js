@@ -9,10 +9,10 @@ const { pool } = require("../database");
 const router = express.Router();
 
 /* =====================================================
-   POST /api/verify-login-otp
+   POST /api/verify-login-otp & /api/login/verify-otp
    ===================================================== */
 
-router.post("/verify-login-otp", async (req, res, next) => {
+router.post(["/verify-login-otp", "/login/verify-otp", "/login/verify-login-otp"], async (req, res, next) => {
   try {
     const { challengeId, otp, rememberMe } = req.body;
 
@@ -182,10 +182,10 @@ router.post("/verify-login-otp", async (req, res, next) => {
 });
 
 /* =====================================================
-   POST /api/login/resend-otp
+   POST /api/login/resend-otp & /api/resend-login-otp
    ===================================================== */
 
-router.post("/login/resend-otp", async (req, res, next) => {
+router.post(["/login/resend-otp", "/resend-login-otp"], async (req, res, next) => {
   try {
     const { challengeId } = req.body;
 

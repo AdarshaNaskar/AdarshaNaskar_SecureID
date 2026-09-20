@@ -279,7 +279,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function showSuccessScreen() {
+  async function showSuccessScreen() {
     if (loginContainer) {
       loginContainer.hidden = true;
     }
@@ -288,6 +288,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (loginSuccessScreen) {
       loginSuccessScreen.hidden = false;
+    }
+
+    try {
+      const res = await fetch("/api/me", { credentials: "same-origin" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.success && data?.user) {
+          state.user = data.user;
+          const heading = loginSuccessScreen?.querySelector(
+            ".success-heading h2",
+          );
+          const desc = loginSuccessScreen?.querySelector(".success-heading p");
+          if (heading)
+            heading.textContent = `Welcome back, ${data.user.fullName}!`;
+          if (desc) desc.textContent = `Signed in as ${data.user.email}`;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load user info:", err);
     }
   }
 
@@ -665,6 +684,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (event.key === "Backspace" && !input.value && index > 0) {
         otpInputs[index - 1].focus();
       }
+
+      if (event.key === "Enter") {
+        event.preventDefault();
+        otpVerifyButton?.click();
+      }
     });
 
     input.addEventListener("paste", (event) => {
@@ -1011,6 +1035,13 @@ document.addEventListener("DOMContentLoaded", () => {
         authenticatorError.textContent = "";
       }
     });
+
+    authenticatorCode.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        authenticatorVerifyButton?.click();
+      }
+    });
   }
 
   /* =====================================================
@@ -1038,8 +1069,8 @@ document.addEventListener("DOMContentLoaded", () => {
      ===================================================== */
 
   if (authenticatorVerifyButton) {
-    authenticatorVerifyButton.addEventListener("click", () => {
-      const code = authenticatorCode?.value || "";
+    authenticatorVerifyButton.addEventListener("click", async () => {
+      const code = authenticatorCode?.value.trim() || "";
 
       if (code.length !== 6) {
         if (authenticatorError) {
@@ -1049,13 +1080,82 @@ document.addEventListener("DOMContentLoaded", () => {
           authenticatorError.hidden = false;
         }
 
+        authenticatorCode?.classList.add("error");
         return;
       }
 
-      /*
-       * TOTP verification will be
-       * connected separately.
-       */
+      if (!state.challengeId) {
+        if (authenticatorError) {
+          authenticatorError.textContent =
+            "Your login session has expired. Please log in again.";
+
+          authenticatorError.hidden = false;
+        }
+
+        return;
+      }
+
+      if (state.loading) {
+        return;
+      }
+
+      state.loading = true;
+      setButtonLoading(authenticatorVerifyButton, true, "Verifying...");
+
+      try {
+        const response = await fetch("/api/login/verify-authenticator", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({
+            challengeId: state.challengeId,
+            code,
+            rememberMe: state.rememberMe === true,
+          }),
+        });
+
+        let data = null;
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
+
+        if (response.ok && data?.success === true) {
+          if (authenticatorCode) {
+            authenticatorCode.value = "";
+          }
+
+          if (authenticatorError) {
+            authenticatorError.hidden = true;
+            authenticatorError.textContent = "";
+          }
+
+          showSuccessScreen();
+          return;
+        }
+
+        if (authenticatorError) {
+          authenticatorError.textContent =
+            data?.message || "Incorrect verification code. Please try again.";
+          authenticatorError.hidden = false;
+        }
+
+        authenticatorCode?.classList.add("error");
+      } catch (error) {
+        console.error("Authenticator verification failed:", error);
+
+        if (authenticatorError) {
+          authenticatorError.textContent =
+            "Unable to connect to the server. Please try again.";
+          authenticatorError.hidden = false;
+        }
+      } finally {
+        state.loading = false;
+        setButtonLoading(authenticatorVerifyButton, false);
+      }
     });
   }
 
@@ -1105,10 +1205,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (continueToAccountButton) {
     continueToAccountButton.addEventListener("click", () => {
-      /*
-       * Account/dashboard will be connected
-       * after the session tests are complete.
-       */
+      const existingInfo = document.getElementById("accountInfoCard");
+      if (existingInfo) {
+        existingInfo.remove();
+        continueToAccountButton.textContent = "View Account Details";
+        return;
+      }
+
+      continueToAccountButton.textContent = "Hide Account Details";
+      const card = document.createElement("div");
+      card.id = "accountInfoCard";
+      card.style.margin = "16px 0";
+      card.style.padding = "16px";
+      card.style.background = "#f0fdf4";
+      card.style.border = "1px solid #bbf7d0";
+      card.style.borderRadius = "8px";
+      card.style.fontSize = "14px";
+      card.style.color = "#166534";
+      card.style.lineHeight = "1.6";
+      card.style.textAlign = "left";
+
+      const name = state.user?.fullName || "Authenticated User";
+      const email = state.user?.email || state.identifier || "";
+
+      card.innerHTML = `
+        <strong>Account Details</strong><br />
+        Name: ${name}<br />
+        Email: ${email}<br />
+        Session: <span style="color: #15803d; font-weight: 600;">Active & Protected</span><br />
+        MFA: <span style="color: #15803d; font-weight: 600;">Verified</span>
+      `;
+      continueToAccountButton.after(card);
     });
   }
 

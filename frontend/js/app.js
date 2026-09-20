@@ -3,7 +3,10 @@ const EMAIL_OTP_DURATION = 300;
 const MOBILE_OTP_DURATION = 300;
 const MFA_OTP_DURATION = 300;
 
-const $ = (id) => document.getElementById(id);
+const $ = (id) =>
+  document.getElementById(
+    typeof id === "string" && id.startsWith("#") ? id.slice(1) : id,
+  );
 const $$ = (selector) => document.querySelectorAll(selector);
 
 const screens = {
@@ -153,7 +156,12 @@ function bindRegistration() {
       showScreen("email");
       setProgressStep(2);
       resetOtpInputs("#otpInputs");
-      startTimer("email", EMAIL_OTP_DURATION, $("otpTimer"), $("resendButton"));
+      startTimer(
+        "email",
+        secondsUntil(result.expiresAt, EMAIL_OTP_DURATION),
+        $("otpTimer"),
+        $("resendButton"),
+      );
       focusFirst("#otpInputs");
     } catch (error) {
       showServerRegistrationError(error);
@@ -249,7 +257,7 @@ function bindEmailOtp() {
       resetOtpInputs("#mobileOtpInputs");
       startTimer(
         "mobile",
-        MOBILE_OTP_DURATION,
+        secondsUntil(result.expiresAt, MOBILE_OTP_DURATION),
         $("mobileOtpTimer"),
         $("mobileResendButton"),
       );
@@ -401,6 +409,13 @@ function bindMfaSelection() {
         prepareMfaOtp(result.method);
         showScreen("mfaVerification");
         setProgressStep(4);
+        startTimer(
+          "mfa",
+          secondsUntil(result.expiresAt, MFA_OTP_DURATION),
+          $("mfaTimer"),
+          $("mfaResendButton"),
+        );
+        focusFirst("#mfaOtpInputs");
       }
     } catch (error) {
       alert(error.message || "Unable to configure MFA.");
@@ -526,6 +541,34 @@ function bindMfaVerification() {
       clearTimer("mfa");
       showScreen("success");
       setProgressStep(5);
+    } catch (error) {
+      showOtpError("mfaOtpInputs", "mfaOtpError", error);
+    } finally {
+      state.busy = false;
+    }
+  });
+
+  $("mfaResendButton")?.addEventListener("click", async () => {
+    if (!state.expired.mfa || state.busy) return;
+
+    state.busy = true;
+
+    try {
+      const result = await api("/mfa/otp/resend", {
+        method: "POST",
+        body: {
+          registrationId: state.registrationId,
+        },
+      });
+
+      resetOtpInputs("#mfaOtpInputs");
+      startTimer(
+        "mfa",
+        secondsUntil(result.expiresAt, MFA_OTP_DURATION),
+        $("mfaTimer"),
+        $("mfaResendButton"),
+      );
+      focusFirst("#mfaOtpInputs");
     } catch (error) {
       showOtpError("mfaOtpInputs", "mfaOtpError", error);
     } finally {

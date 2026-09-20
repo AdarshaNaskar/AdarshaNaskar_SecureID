@@ -5,6 +5,8 @@ const rateLimit = require("express-rate-limit");
 const { pool } = require("../database");
 const { verifyPassword } = require("../security");
 const { createLoginOtp } = require("../otp");
+const { verifyTotp, revealSecret } = require("../mfa");
+const { createSession, setSessionCookie } = require("../session");
 const router = express.Router();
 
 /* =====================================================
@@ -419,11 +421,15 @@ router.post("/select-mfa", async (req, res, next) => {
     GENERATE LOGIN OTP
     --------------------------------------------- */
 
+    let expiresAt;
+
     if (method === "email" || method === "sms") {
-      await createLoginOtp({
+      const otpResult = await createLoginOtp({
         loginChallengeId: challengeId,
         channel: method,
       });
+
+      expiresAt = otpResult.expiresAt;
     }
 
     /* ---------------------------------------------
@@ -435,9 +441,120 @@ router.post("/select-mfa", async (req, res, next) => {
       challengeId,
       method,
       nextStep: method === "authenticator" ? "authenticator" : "otp",
+      expiresAt,
     });
   } catch (error) {
     console.error("MFA selection error:", error);
+
+    next(error);
+  }
+});
+
+/* =====================================================
+   POST /api/login/verify-authenticator
+   ===================================================== */
+
+router.post("/verify-authenticator", async (req, res, next) => {
+  try {
+    const { challengeId, code, rememberMe } = req.body;
+
+    if (
+      typeof challengeId !== "string" ||
+      !/^[a-f0-9]{64}$/i.test(challengeId)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid login challenge.",
+      });
+    }
+
+    const normalizedCode = String(code || "").trim();
+
+    if (!/^\d{6}$/.test(normalizedCode)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid 6-digit authenticator code.",
+      });
+    }
+
+    const challengeResult = await pool.query(
+      `
+      SELECT
+        lc.id,
+        lc.user_id,
+        lc.step,
+        lc.mfa_method,
+        lc.expires_at,
+        u.mfa_secret_enc
+      FROM login_challenges lc
+      JOIN users u
+        ON u.id = lc.user_id
+      WHERE lc.id = $1
+        AND lc.expires_at > $2
+      LIMIT 1
+      `,
+      [challengeId, Date.now()],
+    );
+
+    const challenge = challengeResult.rows[0];
+
+    if (!challenge) {
+      return res.status(401).json({
+        success: false,
+        message: "Your login session has expired. Please log in again.",
+      });
+    }
+
+    if (
+      challenge.step !== "mfa_authenticator" ||
+      challenge.mfa_method !== "authenticator"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This login challenge is not ready for authenticator verification.",
+      });
+    }
+
+    if (!challenge.mfa_secret_enc) {
+      return res.status(400).json({
+        success: false,
+        message: "No authenticator secret is configured for this account.",
+      });
+    }
+
+    const secret = revealSecret(challenge.mfa_secret_enc);
+    const valid = await verifyTotp(secret, normalizedCode);
+
+    if (!valid) {
+      return res.status(401).json({
+        success: false,
+        reason: "invalid",
+        message: "Incorrect authenticator code. Please try again.",
+      });
+    }
+
+    const shouldRemember = rememberMe === true;
+    const session = await createSession(challenge.user_id, shouldRemember);
+
+    await pool.query(
+      `
+      UPDATE login_challenges
+      SET step = 'complete'
+      WHERE id = $1
+      `,
+      [challengeId],
+    );
+
+    setSessionCookie(res, session.token, session.expiresAt, shouldRemember);
+
+    return res.status(200).json({
+      success: true,
+      authenticated: true,
+      message: "Login verification successful.",
+    });
+  } catch (error) {
+    console.error("Authenticator verification error:", error);
 
     next(error);
   }

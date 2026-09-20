@@ -8,6 +8,7 @@ const {
   createQrCode,
   verifyTotp,
   protectSecret,
+  revealSecret,
 } = require("../mfa");
 
 const router = express.Router();
@@ -135,21 +136,34 @@ router.post("/start", async (req, res, next) => {
 
     const existingResult = await pool.query(
       `
-      SELECT email, mobile
+      SELECT id, email, mobile, mfa_enabled
       FROM users
       WHERE LOWER(email) = LOWER($1)
          OR mobile = $2
-      LIMIT 1
       `,
       [normalizedEmail, normalizedMobile],
     );
 
     if (existingResult.rows.length > 0) {
-      // Keep the response generic to reduce account enumeration.
-      return res.status(409).json({
-        success: false,
-        message: "Unable to create this account with the supplied details.",
-      });
+      const completedAccount = existingResult.rows.find(
+        (u) => Number(u.mfa_enabled) === 1,
+      );
+
+      if (completedAccount) {
+        // Keep the response generic to reduce account enumeration.
+        return res.status(409).json({
+          success: false,
+          message: "Unable to create this account with the supplied details.",
+        });
+      }
+
+      // If an incomplete registration exists (abandoned or unverified),
+      // clean it up so the user can register fresh without being locked out.
+      for (const incompleteUser of existingResult.rows) {
+        await pool.query("DELETE FROM users WHERE id = $1", [
+          incompleteUser.id,
+        ]);
+      }
     }
 
     const passwordHash = await hashPassword(password);
@@ -601,7 +615,6 @@ router.post(
         });
       }
 
-      const { revealSecret } = require("../mfa");
       const secret = revealSecret(user.mfa_secret_enc);
 
       if (!(await verifyTotp(secret, code))) {

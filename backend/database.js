@@ -11,8 +11,13 @@ const pool = new Pool({
   connectionTimeoutMillis: 15000,
 });
 
-async function initializeDatabase() {
-  await pool.query(`
+let initializationPromise;
+
+function initializeDatabase() {
+  if (!initializationPromise) {
+    initializationPromise = pool
+      .query(
+        `
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       full_name TEXT NOT NULL,
@@ -114,7 +119,18 @@ async function initializeDatabase() {
 
     CREATE INDEX IF NOT EXISTS idx_login_sessions_token
       ON login_sessions(token_hash);
-  `);
+  `,
+      )
+      .then(() => {
+        console.log("Database initialized successfully.");
+      })
+      .catch((error) => {
+        initializationPromise = null;
+        throw error;
+      });
+  }
+
+  return initializationPromise;
 }
 
 module.exports = {
